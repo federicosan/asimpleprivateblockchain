@@ -11,6 +11,7 @@
 const SHA256 = require('crypto-js/sha256');
 const BlockClass = require('./block.js');
 const bitcoinMessage = require('bitcoinjs-message');
+const { hex2ascii } = require('hex2ascii');
 
 class Blockchain {
 
@@ -64,7 +65,20 @@ class Blockchain {
     _addBlock(block) {
         let self = this;
         return new Promise(async (resolve, reject) => {
-           
+          let chainHeight = await self.getChainHeight();
+          if (chainHeight > 0 ){
+            block.previousBlockHash = await self.getBlockByHeight(chainHeight).hash;
+          }
+          block.height = chainHeight + 1;
+          block.time = new Date().getTime().toString().slice(0,-3);
+          block.hash = SHA256(JSON.stringify(block)).toString(); 
+          if (block.hash !== null){
+            self.chain.push(block);
+            self.height += 1;
+            resolve(self);
+          } else {
+                reject(Error("Something went wrong adding the block to the chain."))
+          }
         });
     }
 
@@ -78,7 +92,7 @@ class Blockchain {
      */
     requestMessageOwnershipVerification(address) {
         return new Promise((resolve) => {
-            
+            resolve(`${address}:${new Date().getTime().toString().slice(0,-3)}:starRegistry`);
         });
     }
 
@@ -100,9 +114,22 @@ class Blockchain {
      * @param {*} star 
      */
     submitStar(address, message, signature, star) {
-        let self = this;
-        return new Promise(async (resolve, reject) => {
-            
+      let self = this;
+      return new Promise(async (resolve, reject) => {
+        let time = parseInt(message.split(':')[1]);
+        let currentTime = parseInt(new Date().getTime().toString().slice(0, -3));
+          if(currentTime - time < 300) {
+            if( await bitcoinMessage.verify(message, address, signature)) {
+              let block = new BlockClass.Block({data: star, bitcoinWalletAddress: address});
+              await self._addBlock(block);
+               resolve(self);
+            } else {
+                reject(Error("The message could not be verified."));
+            }
+                
+          } else {
+                reject(Error("Passed the 5 minute window. Please request a new message."));
+         }
         });
     }
 
@@ -115,7 +142,12 @@ class Blockchain {
     getBlockByHash(hash) {
         let self = this;
         return new Promise((resolve, reject) => {
-           
+            let block = self.chain.filter(b => b.hash === hash)[0];
+            if(block){
+                resolve(block);
+            } else {
+                resolve(null);
+            }   
         });
     }
 
@@ -146,7 +178,12 @@ class Blockchain {
         let self = this;
         let stars = [];
         return new Promise((resolve, reject) => {
-            
+            let stars = self.chain.map( b => b.getBData()).filter( b => b.address === address).map( b => b.star );
+            if(stars) {
+              resolve(stars);
+            } else {
+              reject(Error('No stars for wallet address'));
+            }
         });
     }
 
@@ -159,8 +196,10 @@ class Blockchain {
     validateChain() {
         let self = this;
         let errorLog = [];
-        return new Promise(async (resolve, reject) => {
-            
+        return new Promise((resolve, reject) => {
+            errorLog = self.chain.map(async (b) =>  await b.validate());
+            self.chain.reduce((a, b) => {if(a.hash !== b.previousBlockHash) reject(Error(`Invalid Blockchain at blocks ${a.hash} and ${b.hash}`)) });
+            resolve(errorLog);
         });
     }
 
