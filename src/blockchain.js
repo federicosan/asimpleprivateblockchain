@@ -118,14 +118,19 @@ class Blockchain {
       return new Promise(async (resolve, reject) => {
         let time = parseInt(message.split(':')[1]);
         let currentTime = parseInt(new Date().getTime().toString().slice(0, -3));
-          if(currentTime - time < 300) {
-            if( await bitcoinMessage.verify(message, address, signature)) {
-              let block = new BlockClass.Block({data: star, bitcoinWalletAddress: address});
-              await self._addBlock(block);
-               resolve(self);
-            } else {
-                reject(Error("The message could not be verified."));
+          if(currentTime - time < 300) {  
+            try{    
+              if( bitcoinMessage.verify(message, address, signature)) {
+                let block = new BlockClass.Block({data: star, bitcoinWalletAddress: address});
+                await self._addBlock(block);
+                resolve(self);
+              } else {
+                  reject(Error("The message could not be verified."));
+              }
+            } catch(error){
+                return res.status(500).send(error);
             }
+
                 
           } else {
                 reject(Error("Passed the 5 minute window. Please request a new message."));
@@ -197,7 +202,7 @@ class Blockchain {
         let self = this;
         let errorLog = [];
         return new Promise((resolve, reject) => {
-            errorLog = self.chain.map(async (b) =>  await b.validate());
+            errorLog = self.chain.map( (b) => b.validate());
             self.chain.reduce((a, b) => {if(a.hash !== b.previousBlockHash) reject(Error(`Invalid Blockchain at blocks ${a.hash} and ${b.hash}`)) });
             resolve(errorLog);
         });
