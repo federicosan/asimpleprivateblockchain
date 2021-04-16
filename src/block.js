@@ -75,15 +75,17 @@ class Block {
           // Getting the encoded data saved in the Block
           // Decoding the data to retrieve the JSON representation of the object
           if (self.height !== 0) {
-           let decoded = JSON.parse(hex2ascii(self.body));
-           // Parse the data to an object to be retrieve.
-             resolve(decoded);
-           // Resolve with the data if the object isn't the Genesis block
-           } else {
-             reject(Error("No data found"));
-           }
-
-        });
+              let decoded = JSON.parse(hex2ascii(self.body));
+              // Parse the data to an object to be retrieve.
+              if(decoded){
+                resolve(decoded);
+              }  else {
+                reject(Error("No data for block"));
+              }
+            } else {
+              resolve(false);
+            }
+          });   
     }
 
 }
