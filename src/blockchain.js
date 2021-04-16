@@ -219,9 +219,15 @@ class Blockchain {
     validateChain() {
         let self = this;
         let errorLog = [];
-        return new Promise((resolve, reject) => {
+        return new Promise(async (resolve, reject) => {
             try{
-            errorLog = self.chain.map( async (b) => ({ block: b.hash, valid: await b.validate()}) ).filter(log => log.valid === false);
+                for(let b of self.chain){
+                  let validity = await b.validate();
+                  if(!validity){
+                      errorLog.push({block: b.hash, valid: false});
+                  }
+                }
+                resolve(errorLog);
             } catch(error){
                 reject(Error('Something went wrong while validating the chain'));
             }
