@@ -67,7 +67,7 @@ class Blockchain {
         let self = this;
         return new Promise(async (resolve, reject) => {
           let chainHeight = await self.getChainHeight();
-          if (chainHeight > 0 ){
+          if (chainHeight >= 0 ){
             block.previousBlockHash = await self.getBlockByHeight(chainHeight).hash;
           }
           block.height = chainHeight + 1;
@@ -82,7 +82,7 @@ class Blockchain {
                     } else {
                     self.chain.push(block);
                     self.height += 1;
-                    resolve(self);
+                    resolve(block);
                     }
                 } catch(error) {
                    reject(Error("something went wrong when adding block."));
@@ -132,8 +132,8 @@ class Blockchain {
           if(currentTime - time < 300) {  
             try{    
               if( bitcoinMessage.verify(message, address, signature)) {
-                let block = new BlockClass.Block({star: star, bitcoinWalletAddress: address});
-                await self._addBlock(block);
+                const block = new BlockClass.Block({star: star, bitcoinWalletAddress: address});
+                const blockAdded = await self._addBlock(block);
                 resolve(self);
               } else {
                   reject(Error("The message could not be verified."));
