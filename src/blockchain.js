@@ -67,8 +67,11 @@ class Blockchain {
         let self = this;
         return new Promise(async (resolve, reject) => {
           let chainHeight = await self.getChainHeight();
+          console.log('chainHeight',chainHeight);
           if (chainHeight >= 0 ){
-            block.previousBlockHash = await self.getBlockByHeight(chainHeight).hash;
+            let previousBlockHash = await self.getBlockByHeight(chainHeight);
+            console.log('previousBlockHash',previousBlockHash);
+            block.previousBlockHash = previousBlockHash.hash;
           }
           block.height = chainHeight + 1;
           block.time = new Date().getTime().toString().slice(0,-3);
@@ -134,7 +137,7 @@ class Blockchain {
               if( bitcoinMessage.verify(message, address, signature)) {
                 const block = new BlockClass.Block({star: star, bitcoinWalletAddress: address});
                 const blockAdded = await self._addBlock(block);
-                resolve(self);
+                resolve(blockAdded);
               } else {
                   reject(Error("The message could not be verified."));
               }
@@ -176,6 +179,7 @@ class Blockchain {
         let self = this;
         return new Promise((resolve, reject) => {
             let block = self.chain.filter(p => p.height === height)[0];
+            console.log('block', block);
             if(block){
                 resolve(block);
             } else {
@@ -221,22 +225,19 @@ class Blockchain {
         let errorLog = [];
         return new Promise(async (resolve, reject) => {
             try{
-                for(let b of self.chain){
-                  let validity = await b.validate();
+                for(let i = 1; i < self.chain.length ; i++) {
+                  let validity = await self.chain[i].validate();
                   if(!validity){
-                      errorLog.push({block: b.hash, valid: false});
+                      errorLog.push({ block: self.chain[i], tampered: true });
+                  }
+                  if(self.chain[i-1].hash !== self.chain[i].previousBlockHash){
+                    errorLog.push({ block: self.chain[i], broken: true });
                   }
                 }
                 resolve(errorLog);
             } catch(error){
                 reject(Error('Something went wrong while validating the chain'));
             }
-            for(let i = 0; i < self.chain.length - 1 ; i++) {
-                if(self.chain[i].hash !== self.chain[i+1].previousBlockHash){
-                    reject(Error(`Chain is not valid at block ${self.chain[i+1]}`))
-                }
-            }
-            resolve(errorLog);
         });
     }
 
